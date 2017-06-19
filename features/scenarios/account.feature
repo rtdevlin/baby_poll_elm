@@ -1,4 +1,4 @@
-@accounts
+@accounts @javascript
 Feature: Account
 
   Scenario: Reaching the sign up page

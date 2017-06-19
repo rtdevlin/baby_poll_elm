@@ -3,7 +3,8 @@ Given(/^a user reaches the homepage$/) do
 end
 
 When(/^a user clicks Sign Up$/) do
-    pending # Write code here that turns the phrase above into concrete actions
+  require 'pry'; binding.pry
+  click_button 'Sign Up'
 end
 
 Then(/^the user should reach the sign up page$/) do
