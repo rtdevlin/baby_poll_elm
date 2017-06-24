@@ -1,8 +1,10 @@
 module Main exposing (..)
 
 import Html exposing (..)
-import Html.Events exposing (onClick)
-import Html.Attributes exposing (style)
+import Html.Events exposing (..)
+import Http
+import Json.Decode exposing (Decoder, int)
+import Json.Decode.Pipeline exposing (decode, required, hardcoded)
 
 
 -- MODEL
@@ -17,24 +19,47 @@ type alias Model =
     }
 
 
+voteDecoder : Decoder Model
+voteDecoder =
+    decode Model
+        |> required "boy_votes" int
+        |> required "girl_votes" int
+        |> hardcoded 0
+        |> hardcoded "0"
+        |> hardcoded "0"
+
+
 model : Model
 model =
     Model 0 0 0 "0" "0"
 
 
-recalulateTotalVotes : Model -> Model
-recalulateTotalVotes ({ girlVotes, boyVotes } as model) =
+recalculateTotalVotes : Model -> Model
+recalculateTotalVotes ({ girlVotes, boyVotes } as model) =
     { model | totalVotes = girlVotes + boyVotes }
 
 
-addGirlVote : Model -> Model
-addGirlVote ({ girlVotes } as model) =
-    recalulateTotalVotes ({ model | girlVotes = model.girlVotes + 1 })
+empty : Http.Body
+empty =
+    Http.emptyBody
 
 
-addBoyVote : Model -> Model
-addBoyVote ({ boyVotes } as model) =
-    recalulateTotalVotes ({ model | boyVotes = model.boyVotes + 1 })
+addGirlVote : Cmd Message
+addGirlVote =
+    let
+        url =
+            "/girl"
+    in
+        Http.send (Recalc) (Http.post url empty voteDecoder)
+
+
+addBoyVote : Cmd Message
+addBoyVote =
+    let
+        url =
+            "/boy"
+    in
+        Http.send (Recalc) (Http.post url empty voteDecoder)
 
 
 calculatePercentage : Model -> Model
@@ -79,6 +104,7 @@ view model =
 type Message
     = BoyVote
     | GirlVote
+    | Recalc (Result Http.Error Model)
 
 
 
@@ -89,10 +115,16 @@ update : Message -> Model -> ( Model, Cmd Message )
 update message model =
     case message of
         BoyVote ->
-            ( calculatePercentage (addBoyVote model), Cmd.none )
+            ( model, addBoyVote )
 
         GirlVote ->
-            ( calculatePercentage (addGirlVote model), Cmd.none )
+            ( model, addGirlVote )
+
+        Recalc (Ok newModel) ->
+            ( calculatePercentage (recalculateTotalVotes ({ model | boyVotes = newModel.boyVotes, girlVotes = newModel.girlVotes })), Cmd.none )
+
+        Recalc (Err _) ->
+            model ! []
 
 
 
