@@ -1,0 +1,5 @@
+{
+  "Main.js": "/packs-test/Main.js",
+  "application.js": "/packs-test/application.js",
+  "hello_elm.js": "/packs-test/hello_elm.js"
+}
