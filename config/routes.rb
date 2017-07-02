@@ -6,6 +6,8 @@ Rails.application.routes.draw do
 
   resources :poll, only: %i(show)
 
+  post 'poll/:id/votes', to: 'poll#votes'
+
   post 'poll/:id/boy', to: 'poll#boy'
 
   post 'poll/:id/girl', to: 'poll#girl'

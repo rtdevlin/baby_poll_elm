@@ -3,6 +3,7 @@ module Main exposing (..)
 import Html exposing (..)
 import Html.Events exposing (..)
 import Http
+import Navigation
 import Json.Decode exposing (Decoder, int)
 import Json.Decode.Pipeline exposing (decode, required, hardcoded)
 
@@ -16,6 +17,7 @@ type alias Model =
     , totalVotes : Int
     , boyPercentage : String
     , girlPercentage : String
+    , pathname : String
     }
 
 
@@ -27,11 +29,12 @@ voteDecoder =
         |> hardcoded 0
         |> hardcoded "0"
         |> hardcoded "0"
+        |> hardcoded ""
 
 
 model : Model
 model =
-    Model 0 0 0 "0" "0"
+    Model 0 0 0 "0" "0" ""
 
 
 recalculateTotalVotes : Model -> Model
@@ -44,29 +47,51 @@ empty =
     Http.emptyBody
 
 
-addGirlVote : Cmd Message
-addGirlVote =
+addGirlVote : Model -> Cmd Message
+addGirlVote model =
     let
         url =
-            "/girl"
+            voteUrl model ++ "/girl"
     in
         Http.send (Recalc) (Http.post url empty voteDecoder)
 
 
-addBoyVote : Cmd Message
-addBoyVote =
+addBoyVote : Model -> Cmd Message
+addBoyVote model =
     let
         url =
-            "/boy"
+            voteUrl model ++ "/boy"
     in
         Http.send (Recalc) (Http.post url empty voteDecoder)
+
+
+initialVotes : Model -> Cmd Message
+initialVotes model =
+    let
+        url =
+            voteUrl model ++ "/votes"
+    in
+        Http.send (Recalc) (Http.post url empty voteDecoder)
+
+
+voteUrl : Model -> String
+voteUrl model =
+    model.pathname
 
 
 calculatePercentage : Model -> Model
-calculatePercentage ({ boyVotes, totalVotes } as model) =
+calculatePercentage ({ boyVotes, girlVotes, totalVotes } as model) =
     { model
-        | boyPercentage = toString (round (toFloat (model.boyVotes) / toFloat (model.totalVotes) * 100))
-        , girlPercentage = toString (round (toFloat (model.girlVotes) / toFloat (model.totalVotes) * 100))
+        | boyPercentage =
+            if boyVotes == 0 then
+                "0"
+            else
+                toString (round (toFloat (model.boyVotes) / toFloat (model.totalVotes) * 100))
+        , girlPercentage =
+            if girlVotes == 0 then
+                "0"
+            else
+                toString (round (toFloat (model.girlVotes) / toFloat (model.totalVotes) * 100))
     }
 
 
@@ -74,9 +99,9 @@ calculatePercentage ({ boyVotes, totalVotes } as model) =
 -- INIT
 
 
-init : ( Model, Cmd Message )
-init =
-    ( model, Cmd.none )
+init : Navigation.Location -> ( Model, Cmd Message )
+init location =
+    ( { model | pathname = location.pathname }, initialVotes { model | pathname = location.pathname } )
 
 
 
@@ -105,6 +130,7 @@ type Message
     = BoyVote
     | GirlVote
     | Recalc (Result Http.Error Model)
+    | SetLocation Navigation.Location
 
 
 
@@ -115,16 +141,19 @@ update : Message -> Model -> ( Model, Cmd Message )
 update message model =
     case message of
         BoyVote ->
-            ( model, addBoyVote )
+            ( model, addBoyVote model )
 
         GirlVote ->
-            ( model, addGirlVote )
+            ( model, addGirlVote model )
 
         Recalc (Ok newModel) ->
             ( calculatePercentage (recalculateTotalVotes ({ model | boyVotes = newModel.boyVotes, girlVotes = newModel.girlVotes })), Cmd.none )
 
         Recalc (Err _) ->
             model ! []
+
+        SetLocation location ->
+            ( { model | pathname = location.pathname }, Cmd.none )
 
 
 
@@ -142,7 +171,7 @@ subscriptions model =
 
 main : Program Never Model Message
 main =
-    Html.program
+    Navigation.program SetLocation
         { init = init
         , view = view
         , update = update
